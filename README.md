@@ -22,4 +22,4 @@ conda activate commercial_district
 
 ## 데이터 출처
 
-- 소상공인시장진흥공단 상가(상권)정보 API
+- 소상공인시장진흥공단 상가(상권)정보 API (https://www.data.go.kr/data/15012005/openapi.do#/)
