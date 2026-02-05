@@ -1,0 +1,13 @@
+# 데이터 파일
+data/
+*.csv
+*.parquet
+
+# 환경
+.env
+__pycache__/
+*.pyc
+
+# IDE
+.vscode/
+.idea/
