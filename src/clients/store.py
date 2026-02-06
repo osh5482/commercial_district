@@ -6,7 +6,7 @@ class StoreClient(BaseAPIClient):
     """상가업소 조회 전용 클라이언트"""
 
     def get_storeOne(self, store_code: str):
-        """5. 단일 상가업소 조회: 상가업소번호에 대한 업소정보를 조회.
+        """단일 상가업소 조회: 상가업소번호에 대한 업소정보를 조회.
             단일 업소정보를 출력이 필요한 경우를 위해 설계된 오퍼레이션
 
         Args:
@@ -28,8 +28,8 @@ class StoreClient(BaseAPIClient):
         numOfRows: int = None,
         pageNo: int = None,
     ):
-        """6. 건물 단위 상가업소 조회: 건물관리번호에 대한 업소정보를 조회.
-            동일 건물내에 있는 업소목록이 필요한 경우를 위해 설계된 오퍼레이션 [사각형, 다각형 내 상가업소 조회 후 건물관리번호 획득]
+        """건물 단위 상가업소 조회. 건물관리번호에 대한 업소정보를 조회.
+        동일 건물내에 있는 업소목록이 필요한 경우를 위해 설계된 오퍼레이션 [사각형, 다각형 내 상가업소 조회 후 건물관리번호 획득]
 
         Args:
             store_code: 상가업소번호
@@ -64,7 +64,7 @@ class StoreClient(BaseAPIClient):
         numOfRows: int = None,
         pageNo: int = None,
     ):
-        """7. 지번 단위 상가업소 조회: PNU코드에 대한 업소정보를 조회
+        """지번 단위 상가업소 조회. PNU코드에 대한 업소정보를 조회.
             동일 지번에 있는 업소목록이 필요한 경우를 위해 설계된 오퍼레이션
 
         Args:
@@ -101,7 +101,7 @@ class StoreClient(BaseAPIClient):
         numOfRows: int = None,
         pageNo: int = None,
     ):
-        """8. 행정동 단위 상가업소 조회: 행정동코드에 대한 업소정보를 조회
+        """행정동 단위 상가업소 조회. 행정동코드에 대한 업소정보를 조회.
             동일 행정동에 있는 업소목록이 필요한 경우를 위해 설계된 오퍼레이션
 
         Args:
@@ -139,8 +139,8 @@ class StoreClient(BaseAPIClient):
         numOfRows: int = None,
         pageNo: int = None,
     ):
-        """9. 상권내 상가 업소정보를 조회
-            상권번호에 해당하는 업소목록이 필요한 경우를 위해 설계된 오퍼레이션,
+        """상권내 상가 업소정보를 조회.
+            상권번호에 해당하는 업소목록이 필요한 경우를 위해 설계된 오퍼레이션.
             상권에 포함되는 업소에는 상권번호 속성을 가지고 있음. 해당 상권번호와 일치하는 업소 정보를 조회할 수 있다.[상권번호 : 반경내 상권조회 후 상권번호 획득]
 
         Args:
@@ -178,7 +178,7 @@ class StoreClient(BaseAPIClient):
         numOfRows: int = None,
         pageNo: int = None,
     ):
-        """10. 반경내 상가업소 조회: 중심점 좌표를 기준으로 반경영역에 포함되는 업소목록을 조회할 수 있다.
+        """반경내 상가업소 조회. 중심점 좌표를 기준으로 반경영역에 포함되는 업소목록을 조회할 수 있다.
 
         Args:
             radius: 반경 (단위: m, 최대 2000m)
@@ -220,7 +220,7 @@ class StoreClient(BaseAPIClient):
         numOfRows: int = None,
         pageNo: int = None,
     ):
-        """11. 사각형내 상가 업소정보를 조회
+        """사각형내 상가 업소정보를 조회.
             사각형안에 포함되는 업소목록이 필요한 경우를 위해 설계된 오퍼레이션.
             업소의 경도, 위도 좌표가 입력된 사각형 바운더리 안에 포함되는 업소 정보를 조회할 수 있다.
 
@@ -263,14 +263,14 @@ class StoreClient(BaseAPIClient):
         numOfRows: int = None,
         pageNo: int = None,
     ):
-        """12. 다각형내 상가 업소정보를 조회
+        """다각형내 상가 업소정보를 조회.
             다각형안에 포함되는 업소목록이 필요한 경우를 위해 설계된 오퍼레이션.
             업소의 경도, 위도 좌표가 입력된 다각형 바운더리 안에 포함되는 업소 정보를 조회할 수 있다.
 
         Args:
             coordinates: 다각형 좌표
-                - 리스트 형식: [(경도, 위도), (경도, 위도), ...]
-                - WKT 문자열: "POLYGON((경도 위도, 경도 위도, ...))"
+                - 리스트 형식. [(경도, 위도), (경도, 위도), ...]
+                - WKT 문자열. "POLYGON((경도 위도, 경도 위도, ...))"
             indsLclsCd: 상권업종대분류코드 (optional)
             indsMclsCd: 상권업종중분류코드 (optional)
             indsSclsCd: 상권업종소분류코드 (optional)
@@ -281,19 +281,19 @@ class StoreClient(BaseAPIClient):
             JSON 응답을 딕셔너리로 반환
 
         Examples:
-            >>> # 방법 1: 좌표 리스트 (권장)
-            >>> collector.get_storeListInPolygon([
-            ...     (127.0, 37.5),
-            ...     (127.1, 37.5),
-            ...     (127.1, 37.6),
-            ...     (127.0, 37.6),
-            ...     (127.0, 37.5)  # 시작점으로 닫아야 함
-            ... ])
+            방법 1. 좌표 리스트 (권장)
+            collector.get_storeListInPolygon([
+                (127.0, 37.5),
+                (127.1, 37.5),
+                (127.1, 37.6),
+                (127.0, 37.6),
+                (127.0, 37.5)  # 시작점으로 닫아야 함
+            ])
 
-            >>> # 방법 2: WKT 문자열 직접 입력
-            >>> collector.get_storeListInPolygon(
-            ...     "POLYGON((127.0 37.5, 127.1 37.5, 127.1 37.6, 127.0 37.5))"
-            ... )"""
+            방법 2. WKT 문자열 직접 입력
+            collector.get_storeListInPolygon(
+                "POLYGON((127.0 37.5, 127.1 37.5, 127.1 37.6, 127.0 37.5))"
+            )"""
         endpoint = "/storeListInPolygon"
 
         # 좌표 리스트를 WKT로 변환
@@ -323,7 +323,7 @@ class StoreClient(BaseAPIClient):
         numOfRows: int = None,
         pageNo: int = None,
     ):
-        """13. 업종 단위 상가업소 조회: 업종코드에 대한 업소정보를 조회
+        """업종 단위 상가업소 조회. 업종코드에 대한 업소정보를 조회.
             동일 업종에 있는 업소목록이 필요한 경우를 위해 설계된 오퍼레이션
 
         Args:
@@ -355,7 +355,7 @@ class StoreClient(BaseAPIClient):
         numOfRows: int = None,
         pageNo: int = None,
     ):
-        """14. 수정일자기준 상가업소 조회: 해당 수정일자를 기준으로 상가 업소정보를 조회
+        """수정일자기준 상가업소 조회. 해당 수정일자를 기준으로 상가 업소정보를 조회.
         수정일자를 기준으로 신규, 수정 업소목록이 필요한 경우를 위해 설계된 오퍼레이션 (제공기준 : 영업중인 상가 업소정보)
 
         Args:

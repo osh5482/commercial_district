@@ -27,16 +27,40 @@ class BaseAPIClient:
         try:
             # 공통 파라미터 추가
             params.update(
-                {"serviceKey": self.api_key, "type": self.type}  # 인증키  # json 형식
+                {
+                    "serviceKey": self.api_key,  # 인증키
+                    "type": self.type,  # json 형식
+                }
             )
             url = self.base_url + endpoint
             response = self.session.get(url, params=params, timeout=30)
-            print(f"요청 URL: {response.url}")  # 디버깅용 요청 URL 출력
             response.raise_for_status()  # 에러 체크
             return response.json()
+
+        except requests.exceptions.HTTPError as e:
+            # HTTP 에러 (400, 404, 500 등)
+            status_code = e.response.status_code
+            if status_code == 400:
+                raise Exception(f"잘못된 요청입니다 (400): {e}")
+            elif status_code == 401:
+                raise Exception(f"인증 실패 (401): API 키를 확인하세요")
+            elif status_code == 404:
+                raise Exception(f"리소스를 찾을 수 없습니다 (404): {e}")
+            elif status_code == 429:
+                raise Exception(f"API 호출 한도 초과 (429): 잠시 후 다시 시도하세요")
+            elif status_code >= 500:
+                raise Exception(f"서버 오류 ({status_code}): {e}")
+            else:
+                raise Exception(f"HTTP 에러 ({status_code}): {e}")
+
+        except requests.exceptions.Timeout:
+            raise Exception("요청 시간 초과 (30초)")
+
+        except requests.exceptions.ConnectionError:
+            raise Exception("네트워크 연결 실패")
+
         except requests.exceptions.RequestException as e:
-            print(f"API 요청 실패: {e}")
-            return None  # 또는 예외 재발생
+            raise Exception(f"API 요청 실패: {e}")
 
     def _coords_to_wkt(self, coords: list[tuple[float, float]]) -> str:
         """좌표 리스트를 WKT POLYGON 문자열로 변환 (get_storeListInPolygon 에서 사용)

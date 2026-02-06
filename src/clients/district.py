@@ -24,7 +24,7 @@ class DistrictClient(BaseAPIClient):
         *,  # kargs 구분
         parents_Cd: str = None,
     ):
-        """행정구역 조회: 시도, 시군구, 행정동 단위의 행정구역코드를 조회하는 기능
+        """행정구역 조회. 시도, 시군구, 행정동 단위의 행정구역코드를 조회하는 기능
 
         Args:
             resId: 리소스 ID (default: dong, 리소스에 대한 ID로 dong은 행정구역 리소스를 나타낸다.)
