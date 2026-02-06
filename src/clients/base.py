@@ -2,6 +2,7 @@
 import aiohttp
 import asyncio
 from config.settings import API_KEY, BASE_URL
+from config.logging import logger
 
 
 class AsyncBaseAPIClient:
@@ -12,16 +13,19 @@ class AsyncBaseAPIClient:
         self.api_key = api_key
         self.base_url = base_url
         self.session = None
+        logger.debug(f"{self.__class__.__name__} 초기화 완료")
 
     async def __aenter__(self):
         """비동기 컨텍스트 매니저 진입 메서드"""
         self.session = aiohttp.ClientSession()
+        logger.debug(f"{self.__class__.__name__} 세션 생성")
         return self
 
     async def __aexit__(self, exc_type, exc_value, traceback):
         """비동기 컨텍스트 매니저 종료 메서드"""
         if self.session and not self.session.closed:
             await self.session.close()
+            logger.debug(f"{self.__class__.__name__} 세션 종료")
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """비동기 세션 생성 메서드"""
@@ -54,6 +58,7 @@ class AsyncBaseAPIClient:
         for attempt in range(max_retries):
             try:
                 session = await self._get_session()
+                logger.debug(f"API 요청: {endpoint}, 시도: {attempt + 1}/{max_retries}")
                 async with session.get(
                     url, params=params, timeout=aiohttp.ClientTimeout(total=30)
                 ) as response:
@@ -63,36 +68,48 @@ class AsyncBaseAPIClient:
             except aiohttp.ClientResponseError as e:
                 # HTTP 에러 (400, 404, 500 등)
                 status_code = e.status
+
                 if status_code == 400:
+                    logger.error(f"잘못된 요청입니다 (400): {e}")
                     raise Exception(f"잘못된 요청입니다 (400): {e}")
                 elif status_code == 401:
+                    logger.error(f"인증 실패 (401): API 키를 확인하세요")
                     raise Exception(f"인증 실패 (401): API 키를 확인하세요")
                 elif status_code == 404:
+                    logger.error(f"리소스를 찾을 수 없습니다 (404): {e}")
                     raise Exception(f"리소스를 찾을 수 없습니다 (404): {e}")
                 elif status_code >= 500:
+                    logger.error(f"서버 오류 ({status_code}): {e}")
                     raise Exception(f"서버 오류 ({status_code}): {e}")
 
                 elif status_code == 429:  # 재시도 로직
                     if attempt < max_retries - 1:
                         wait_time = (2**attempt) / 2  # 0.5초, 1초, 2초, 4초
-                        print(f"⏳ API 한도 초과. {wait_time}초 대기 후 재시도...")
+                        logger.warning(
+                            f"API 한도 초과. {wait_time}초 대기 후 재시도..."
+                        )
                         await asyncio.sleep(wait_time)
                         continue
                     else:
+                        logger.error(f"API 호출 한도 초과: 최대 재시도 횟수 초과")
                         raise Exception(
                             f"API 호출 한도 초과 (429): 최대 재시도 횟수 초과"
                         )
 
                 else:
+                    logger.error(f"HTTP 에러 ({status_code}): {e}")
                     raise Exception(f"HTTP 에러 ({status_code}): {e}")
 
             except asyncio.TimeoutError:
+                logger.error(f"요청 시간 초과: {endpoint}")
                 raise Exception("요청 시간 초과 (30초)")
 
             except aiohttp.ClientConnectorError:
+                logger.error(f"네트워크 연결 실패: {e}")
                 raise Exception("네트워크 연결 실패")
 
             except aiohttp.ClientError as e:
+                logger.error(f"API 요청 실패: {e}")
                 raise Exception(f"API 요청 실패: {e}")
 
     def _coords_to_wkt(self, coords: list[tuple[float, float]]) -> str:

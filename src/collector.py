@@ -2,6 +2,7 @@
 import pandas as pd
 import asyncio
 from src.clients import DistrictClient, StoreZoneClient, StoreClient
+from config.logging import logger
 
 
 class Collector:
@@ -10,6 +11,7 @@ class Collector:
         self.store_zone_client = StoreZoneClient()
         self.store_client = StoreClient()
         self.semaphore = asyncio.Semaphore(5)  # 동시 요청
+        logger.info("Collector 초기화 완료")
 
     async def __aenter__(self):
         await self.district_client.__aenter__()
@@ -122,7 +124,9 @@ class Collector:
             상가업소 데이터가 담긴 Pandas DataFrame
         """
         # 1. 시군구 코드 조회
+        logger.info(f"상가업소 수집 시작: {sido_name} {sigungu_name}")
         sigungu_code = await self.get_sigungu_code(sido_name, sigungu_name)
+        logger.debug(f"시군구 코드: {sigungu_code}")
 
         # 2. 첫번째 페이지 호출 -> 전체 건수 확인
         first_response = await self.store_client.get_storeListInDong(
@@ -131,10 +135,12 @@ class Collector:
         first_body = first_response.get("body", {})
         total_count = first_body.get("totalCount", 0)
         if total_count == 0:
-            print(f"==== {sido_name} {sigungu_name} 상가업소 데이터가 없습니다. ====")
+            logger.warning(f"{sido_name} {sigungu_name}: 데이터 없음")
+            return pd.DataFrame()
 
         # 2-2. 전체 페이지 수 계산 (예: 2500개면 3페이지)
         total_pages = (total_count // 1000) + (1 if total_count % 1000 > 0 else 0)
+        logger.info(f"총 {total_pages} 페이지, {total_count} 건 수집 예정")
 
         # 3. 비동기 내부 함수 정의
         async def fetch_page(page_no: int) -> list:
@@ -147,27 +153,31 @@ class Collector:
                         pageNo=page_no,
                     )
                     items = response.get("body", {}).get("items", [])
-                    print(f"수집중... 페이지 {page_no}/{total_pages} 완료")
+                    logger.info(f"페이지 {page_no}/{total_pages} 수집 완료")
                     return items
 
                 except Exception as e:
-                    raise Exception(f"상가업소 목록 조회 실패 (페이지 {page_no}): {e}")
+                    logger.error(f"페이지 {page_no} 수집 실패: {e}")
+                    raise
 
         # 4. 2 페이지 부터 마지막 페이지까지 비동기 수집
         tasks = [fetch_page(page_no) for page_no in range(2, total_pages + 1)]
 
         # 5. 비동기 작업 실행
-        print(f"총 {total_pages} 페이지, {total_count} 건 수집 시작...")
+        logger.info(f"총 {total_pages} 페이지, {total_count} 건 수집 시작...")
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # 6. 첫 페이지 데이터와 병합
         all_items = first_body.get("items", [])
         for result in results:
             if isinstance(result, Exception):
-                print(f"오류 발생: {result}")
+                logger.error(f"오류 발생: {result}")
             else:
                 all_items.extend(result)
 
         # 7. Pandas DataFrame 변환
         df = pd.DataFrame(all_items)
+        logger.success(
+            f"{sido_name} {sigungu_name} 업소 데이터 수집 완료: {len(df)} 건"
+        )
         return df

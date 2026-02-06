@@ -18,3 +18,7 @@ CLAUDE.md
 # 참고파일
 *.pdf
 *.xlsx
+
+# 로그파일
+logs/
+.log
