@@ -1,17 +1,25 @@
-from src.clients import StoreZoneClient, StoreClient, UpjongClient, DistrictClient
+# main.py
 import json
+from src.collector import Collector
 
 
-def print_json(json_data):
-    """JSON 데이터를 가독성 좋게 출력하는 유틸리티 함수"""
+def print_json(json_data: dict | list) -> None:
+    """JSON 데이터를 가독성 좋게 출력하는 유틸리티 함수
+
+    Args:
+        json_data: 출력할 JSON 데이터 (딕셔너리 또는 리스트)
+    """
     print(json.dumps(json_data, indent=2, ensure_ascii=False))
+    return
 
 
-def main():
+def main() -> None:
     """테스트용 메인 함수"""
-    store_zone_client = StoreZoneClient()
-    result = store_zone_client.get_storeZoneOne(10000, "2025")
-    print_json(result)
+    collector = Collector()
+    sido, sigungu = "서울특별시", "강동구"
+    df_store = collector.collect_stores(sido, sigungu)
+    print(f"==== {sido} {sigungu}의 상가업소 ====\n")
+    print(df_store)
     return
 
 
