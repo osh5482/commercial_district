@@ -1,45 +1,55 @@
 # src/clients/base.py
-import requests
+import aiohttp
+import asyncio
 from config.settings import API_KEY, BASE_URL
 
 
-class BaseAPIClient:
-    """소상공인 상가정보 API 통합 수집 클래스"""
+class AsyncBaseAPIClient:
+    """소상공인 상가정보 비동기 API 통합 수집 클래스"""
 
     def __init__(self, api_key: str = API_KEY, base_url: str = BASE_URL):
         """초기화 메서드"""
         self.api_key = api_key
         self.base_url = base_url
-        self.type = "json"
-        self.session = requests.Session()
+        self.session = None
 
-    def _make_request(self, endpoint: str, params: dict[str, any]) -> dict:
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """비동기 세션 생성 메서드"""
+        if self.session is None or self.session.closed:
+            self.session = aiohttp.ClientSession()
+        return self.session
+
+    async def _make_async_request(self, endpoint: str, params: dict[str, any]) -> dict:
         """
-        API 요청을 보내고 응답을 반환하는 내부 메서드
+        비동기 API 요청을 보내고 응답을 반환하는 내부 메서드
 
         Args:
             endpoint: API 엔드포인트 경로
             params: 쿼리 파라미터 딕셔너리
 
         Returns:
-            JSON 응답을 딕셔너리로 반환, 실패 시 None
+            JSON 응답을 딕셔너리로 반환
         """
+
         try:
             # 공통 파라미터 추가
             params.update(
                 {
                     "serviceKey": self.api_key,  # 인증키
-                    "type": self.type,  # json 형식
+                    "type": "json",  # json 형식
                 }
             )
             url = self.base_url + endpoint
-            response = self.session.get(url, params=params, timeout=30)
-            response.raise_for_status()  # 에러 체크
-            return response.json()
+            session = await self._get_session()
+            async with session.get(
+                url, params=params, timeout=aiohttp.ClientTimeout(total=30)
+            ) as response:
+                response.raise_for_status()  # 에러 체크
+                return await response.json()
 
-        except requests.exceptions.HTTPError as e:
+        except aiohttp.ClientResponseError as e:
             # HTTP 에러 (400, 404, 500 등)
-            status_code = e.response.status_code
+            status_code = e.status
             if status_code == 400:
                 raise Exception(f"잘못된 요청입니다 (400): {e}")
             elif status_code == 401:
@@ -53,14 +63,17 @@ class BaseAPIClient:
             else:
                 raise Exception(f"HTTP 에러 ({status_code}): {e}")
 
-        except requests.exceptions.Timeout:
+        except asyncio.TimeoutError:
             raise Exception("요청 시간 초과 (30초)")
 
-        except requests.exceptions.ConnectionError:
+        except aiohttp.ClientConnectorError:
             raise Exception("네트워크 연결 실패")
 
-        except requests.exceptions.RequestException as e:
+        except aiohttp.ClientError as e:
             raise Exception(f"API 요청 실패: {e}")
+
+        finally:
+            await self.close()
 
     def _coords_to_wkt(self, coords: list[tuple[float, float]]) -> str:
         """좌표 리스트를 WKT POLYGON 문자열로 변환 (get_storeListInPolygon 에서 사용)
@@ -82,6 +95,7 @@ class BaseAPIClient:
         coord_str = ", ".join([f"{lon} {lat}" for lon, lat in coords])
         return f"POLYGON(({coord_str}))"
 
-    def close(self):
+    async def close(self):
         """세션 종료 메서드"""
-        self.session.close()
+        if self.session and not self.session.closed:
+            await self.session.close()

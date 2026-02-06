@@ -1,9 +1,9 @@
 # src/clients/district.py
-from .base import BaseAPIClient
+from .base import AsyncBaseAPIClient
 from typing import Literal, overload
 
 
-class DistrictClient(BaseAPIClient):
+class DistrictClient(AsyncBaseAPIClient):
     """행정구역코드 조회 전용 클라이언트"""
 
     @overload
@@ -18,7 +18,7 @@ class DistrictClient(BaseAPIClient):
     @overload
     def get_districtList(self, catId: Literal["zone"], *, parents_Cd: str): ...
 
-    def get_districtList(
+    async def get_districtList(
         self,
         catId: Literal["mega", "cty", "admi", "zone"],
         *,  # kargs 구분
@@ -49,4 +49,4 @@ class DistrictClient(BaseAPIClient):
             else:
                 pass
 
-        return self._make_request(endpoint, params)
+        return await self._make_async_request(endpoint, params)

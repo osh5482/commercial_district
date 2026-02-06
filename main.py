@@ -1,5 +1,6 @@
 # main.py
 import json
+import asyncio
 from src.collector import Collector
 
 
@@ -13,15 +14,15 @@ def print_json(json_data: dict | list) -> None:
     return
 
 
-def main() -> None:
+async def main() -> None:
     """테스트용 메인 함수"""
     collector = Collector()
     sido, sigungu = "서울특별시", "강동구"
-    df_store = collector.collect_stores(sido, sigungu)
+    df_store = await collector.collect_stores(sido, sigungu)
     print(f"==== {sido} {sigungu}의 상가업소 ====\n")
     print(df_store)
     return
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

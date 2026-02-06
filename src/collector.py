@@ -1,5 +1,6 @@
 # src/collector.py
 import pandas as pd
+import asyncio
 from src.clients import DistrictClient, StoreZoneClient, StoreClient
 
 
@@ -8,8 +9,9 @@ class Collector:
         self.district_client = DistrictClient()
         self.store_zone_client = StoreZoneClient()
         self.store_client = StoreClient()
+        self.semaphore = asyncio.Semaphore(30)
 
-    def get_sido_code(self, sido_name: str) -> str:
+    async def get_sido_code(self, sido_name: str) -> str:
         """시도 이름으로 시도 코드를 조회하는 메서드
 
         Args:
@@ -20,7 +22,7 @@ class Collector:
         """
         # 1. 행정구역코드 조회: 시도 단위의 행정구역코드를 조회
         try:
-            response = self.district_client.get_districtList(catId="mega")
+            response = await self.district_client.get_districtList(catId="mega")
 
         except Exception as e:
             raise Exception(f"시도 목록 조회 실패: {e}")
@@ -37,7 +39,7 @@ class Collector:
         # 시도를 찾지 못한 경우
         raise ValueError(f"시도 '{sido_name}'를 찾을 수 없습니다.")
 
-    def get_sigungu_code(self, sido_name: str, sigungu_name: str) -> str:
+    async def get_sigungu_code(self, sido_name: str, sigungu_name: str) -> str:
         """시도 이름과 시군구 이름으로 시군구 코드를 조회하는 메서드
 
         Args:
@@ -48,11 +50,11 @@ class Collector:
             시군구 코드 문자열 (예: "680")
         """
         # 1. 시도 코드 조회
-        sido_code = self.get_sido_code(sido_name)
+        sido_code = await self.get_sido_code(sido_name)
 
         # 2. 시도 코드로 시군구 목록 조회
         try:
-            response = self.district_client.get_districtList(
+            response = await self.district_client.get_districtList(
                 catId="cty", parents_Cd=sido_code
             )
 
@@ -71,7 +73,7 @@ class Collector:
         # 시군구를 찾지 못한 경우
         raise ValueError(f"시군구 '{sigungu_name}'를 찾을 수 없습니다.")
 
-    def collect_store_zones(self, sido_name: str, sigungu_name: str) -> dict:
+    async def collect_store_zones(self, sido_name: str, sigungu_name: str) -> dict:
         """시도 이름과 시군구 이름으로 상권 데이터를 수집하는 메서드
 
         Args:
@@ -82,11 +84,11 @@ class Collector:
             상권 데이터 리스트 (딕셔너리의 리스트)
         """
         # 1. 시군구 코드 조회
-        sigungu_code = self.get_sigungu_code(sido_name, sigungu_name)
+        sigungu_code = await self.get_sigungu_code(sido_name, sigungu_name)
 
         # 2. 상권 데이터 조회
         try:
-            response = self.store_zone_client.get_storeZoneInAdmi(
+            response = await self.store_zone_client.get_storeZoneInAdmi(
                 divID="signguCd", district_code=sigungu_code
             )
         except Exception as e:
@@ -98,7 +100,7 @@ class Collector:
 
         return response_items
 
-    def collect_stores(self, sido_name: str, sigungu_name: str) -> pd.DataFrame:
+    async def collect_stores(self, sido_name: str, sigungu_name: str) -> pd.DataFrame:
         """시군구 내 모든 상가업소 데이터 수집
 
         Args:
@@ -109,7 +111,7 @@ class Collector:
             상가업소 데이터가 담긴 Pandas DataFrame
         """
         # 1. 시군구 코드 조회
-        sigungu_code = self.get_sigungu_code(sido_name, sigungu_name)
+        sigungu_code = await self.get_sigungu_code(sido_name, sigungu_name)
 
         # 2. 상가정보 조회 (페이징)
         all_items = []
@@ -118,7 +120,7 @@ class Collector:
         while True:
             # 2-1. 상가업소 목록 조회
             try:
-                response = self.store_client.get_storeListInDong(
+                response = await self.store_client.get_storeListInDong(
                     divId="signguCd",
                     district_code=sigungu_code,
                     numOfRows=1000,

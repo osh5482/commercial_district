@@ -1,11 +1,11 @@
 # src/clients/store.py
-from .base import BaseAPIClient
+from .base import AsyncBaseAPIClient
 
 
-class StoreClient(BaseAPIClient):
+class StoreClient(AsyncBaseAPIClient):
     """상가업소 조회 전용 클라이언트"""
 
-    def get_storeOne(self, store_code: str):
+    async def get_storeOne(self, store_code: str):
         """단일 상가업소 조회: 상가업소번호에 대한 업소정보를 조회.
             단일 업소정보를 출력이 필요한 경우를 위해 설계된 오퍼레이션
 
@@ -16,9 +16,9 @@ class StoreClient(BaseAPIClient):
             JSON 응답을 딕셔너리로 반환"""
         endpoint = "/storeOne"
         params = {"key": store_code}
-        return self._make_request(endpoint, params)
+        return await self._make_async_request(endpoint, params)
 
-    def get_storeListInBuilding(
+    async def get_storeListInBuilding(
         self,
         store_code: str,
         *,  # kargs 구분자
@@ -52,9 +52,9 @@ class StoreClient(BaseAPIClient):
         }
         params = {k: v for k, v in params.items() if v is not None}
 
-        return self._make_request(endpoint, params)
+        return await self._make_async_request(endpoint, params)
 
-    def get_storeListInPnu(
+    async def get_storeListInPnu(
         self,
         pnu_code: str,
         *,  # kargs 구분자
@@ -88,9 +88,9 @@ class StoreClient(BaseAPIClient):
         }
         params = {k: v for k, v in params.items() if v is not None}
 
-        return self._make_request(endpoint, params)
+        return await self._make_async_request(endpoint, params)
 
-    def get_storeListInDong(
+    async def get_storeListInDong(
         self,
         divId: str,
         district_code: str,
@@ -127,9 +127,9 @@ class StoreClient(BaseAPIClient):
         }
         params = {k: v for k, v in params.items() if v is not None}
 
-        return self._make_request(endpoint, params)
+        return await self._make_async_request(endpoint, params)
 
-    def get_storeListInArea(
+    async def get_storeListInArea(
         self,
         area_code: str,
         *,  # kargs 구분자
@@ -164,9 +164,9 @@ class StoreClient(BaseAPIClient):
         }
         params = {k: v for k, v in params.items() if v is not None}
 
-        return self._make_request(endpoint, params)
+        return await self._make_async_request(endpoint, params)
 
-    def get_storeListInRadius(
+    async def get_storeListInRadius(
         self,
         radius: int,
         cx: float,
@@ -205,9 +205,9 @@ class StoreClient(BaseAPIClient):
         }
         params = {k: v for k, v in params.items() if v is not None}
 
-        return self._make_request(endpoint, params)
+        return await self._make_async_request(endpoint, params)
 
-    def get_storeListInRectangle(
+    async def get_storeListInRectangle(
         self,
         minx: float,
         miny: float,
@@ -251,9 +251,9 @@ class StoreClient(BaseAPIClient):
         }
         params = {k: v for k, v in params.items() if v is not None}
 
-        return self._make_request(endpoint, params)
+        return await self._make_async_request(endpoint, params)
 
-    def get_storeListInPolygon(
+    async def get_storeListInPolygon(
         self,
         coordinates: list[tuple[float, float]] | str,
         *,  # kargs 구분자
@@ -313,9 +313,9 @@ class StoreClient(BaseAPIClient):
         }
         params = {k: v for k, v in params.items() if v is not None}
 
-        return self._make_request(endpoint, params)
+        return await self._make_async_request(endpoint, params)
 
-    def get_storeListInUpjong(
+    async def get_storeListInUpjong(
         self,
         divId: str,
         upjong_code: str,
@@ -343,9 +343,9 @@ class StoreClient(BaseAPIClient):
         }
         params = {k: v for k, v in params.items() if v is not None}
 
-        return self._make_request(endpoint, params)
+        return await self._make_async_request(endpoint, params)
 
-    def get_storeListByDate(
+    async def get_storeListByDate(
         self,
         date: str,
         *,  # kargs 구분자
@@ -379,4 +379,4 @@ class StoreClient(BaseAPIClient):
         }
         params = {k: v for k, v in params.items() if v is not None}
 
-        return self._make_request(endpoint, params)
+        return await self._make_async_request(endpoint, params)
