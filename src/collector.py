@@ -9,7 +9,7 @@ class Collector:
         self.district_client = DistrictClient()
         self.store_zone_client = StoreZoneClient()
         self.store_client = StoreClient()
-        self.semaphore = asyncio.Semaphore(5)  # 동시 요청 제한
+        self.semaphore = asyncio.Semaphore(5)  # 동시 요청
 
     async def __aenter__(self):
         await self.district_client.__aenter__()
@@ -147,8 +147,7 @@ class Collector:
                         pageNo=page_no,
                     )
                     items = response.get("body", {}).get("items", [])
-                    print(f"수집 중... 페이지 {page_no} 완료")
-                    await asyncio.sleep(0.2)
+                    print(f"수집중... 페이지 {page_no}/{total_pages} 완료")
                     return items
 
                 except Exception as e:
