@@ -13,6 +13,16 @@ class AsyncBaseAPIClient:
         self.base_url = base_url
         self.session = None
 
+    async def __aenter__(self):
+        """비동기 컨텍스트 매니저 진입 메서드"""
+        self.session = aiohttp.ClientSession()
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        """비동기 컨텍스트 매니저 종료 메서드"""
+        if self.session and not self.session.closed:
+            await self.session.close()
+
     async def _get_session(self) -> aiohttp.ClientSession:
         """비동기 세션 생성 메서드"""
         if self.session is None or self.session.closed:
@@ -71,9 +81,6 @@ class AsyncBaseAPIClient:
 
         except aiohttp.ClientError as e:
             raise Exception(f"API 요청 실패: {e}")
-
-        finally:
-            await self.close()
 
     def _coords_to_wkt(self, coords: list[tuple[float, float]]) -> str:
         """좌표 리스트를 WKT POLYGON 문자열로 변환 (get_storeListInPolygon 에서 사용)

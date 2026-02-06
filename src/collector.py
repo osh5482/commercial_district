@@ -9,7 +9,18 @@ class Collector:
         self.district_client = DistrictClient()
         self.store_zone_client = StoreZoneClient()
         self.store_client = StoreClient()
-        self.semaphore = asyncio.Semaphore(30)
+        self.semaphore = asyncio.Semaphore(5)  # 동시 요청 제한
+
+    async def __aenter__(self):
+        await self.district_client.__aenter__()
+        await self.store_zone_client.__aenter__()
+        await self.store_client.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await self.district_client.__aexit__(exc_type, exc_value, traceback)
+        await self.store_zone_client.__aexit__(exc_type, exc_value, traceback)
+        await self.store_client.__aexit__(exc_type, exc_value, traceback)
 
     async def get_sido_code(self, sido_name: str) -> str:
         """시도 이름으로 시도 코드를 조회하는 메서드
@@ -113,41 +124,51 @@ class Collector:
         # 1. 시군구 코드 조회
         sigungu_code = await self.get_sigungu_code(sido_name, sigungu_name)
 
-        # 2. 상가정보 조회 (페이징)
-        all_items = []
-        page_no = 1
-        print(f"==== {sido_name} {sigungu_name} 상가업소 데이터 수집 시작 ====")
-        while True:
-            # 2-1. 상가업소 목록 조회
-            try:
-                response = await self.store_client.get_storeListInDong(
-                    divId="signguCd",
-                    district_code=sigungu_code,
-                    numOfRows=1000,
-                    pageNo=page_no,
-                )
-
-            except Exception as e:
-                raise Exception(f"상가업소 목록 조회 실패: {e}")
-
-            # 2-2. 응답 데이터 파싱
-            response_body = response.get("body", {})
-            response_items = response_body.get("items", [])
-
-            # 2-3. 더 이상 데이터가 없으면 종료
-            if not response_items:
-                break
-
-            # 2-4. 수집된 데이터 누적
-            all_items.extend(response_items)
-            print(f"수집 중... 페이지 {page_no} 완료, 누적 건수: {len(all_items)}")
-            page_no += 1
-
-        # while 끝
-        print(
-            f"==== {sido_name} {sigungu_name} 상가업소 데이터 수집 완료 (총 {len(all_items)} 건) ===="
+        # 2. 첫번째 페이지 호출 -> 전체 건수 확인
+        first_response = await self.store_client.get_storeListInDong(
+            divId="signguCd", district_code=sigungu_code, numOfRows=1000, pageNo=1
         )
+        first_body = first_response.get("body", {})
+        total_count = first_body.get("totalCount", 0)
+        if total_count == 0:
+            print(f"==== {sido_name} {sigungu_name} 상가업소 데이터가 없습니다. ====")
 
-        # 3. DataFrame으로 변환하여 반환
+        # 2-2. 전체 페이지 수 계산 (예: 2500개면 3페이지)
+        total_pages = (total_count // 1000) + (1 if total_count % 1000 > 0 else 0)
+
+        # 3. 비동기 내부 함수 정의
+        async def fetch_page(page_no: int) -> list:
+            async with self.semaphore:
+                try:
+                    response = await self.store_client.get_storeListInDong(
+                        divId="signguCd",
+                        district_code=sigungu_code,
+                        numOfRows=1000,
+                        pageNo=page_no,
+                    )
+                    items = response.get("body", {}).get("items", [])
+                    print(f"수집 중... 페이지 {page_no} 완료")
+                    await asyncio.sleep(0.2)
+                    return items
+
+                except Exception as e:
+                    raise Exception(f"상가업소 목록 조회 실패 (페이지 {page_no}): {e}")
+
+        # 4. 2 페이지 부터 마지막 페이지까지 비동기 수집
+        tasks = [fetch_page(page_no) for page_no in range(2, total_pages + 1)]
+
+        # 5. 비동기 작업 실행
+        print(f"총 {total_pages} 페이지, {total_count} 건 수집 시작...")
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # 6. 첫 페이지 데이터와 병합
+        all_items = first_body.get("items", [])
+        for result in results:
+            if isinstance(result, Exception):
+                print(f"오류 발생: {result}")
+            else:
+                all_items.extend(result)
+
+        # 7. Pandas DataFrame 변환
         df = pd.DataFrame(all_items)
         return df

@@ -16,11 +16,10 @@ def print_json(json_data: dict | list) -> None:
 
 async def main() -> None:
     """테스트용 메인 함수"""
-    collector = Collector()
-    sido, sigungu = "서울특별시", "강동구"
-    df_store = await collector.collect_stores(sido, sigungu)
-    print(f"==== {sido} {sigungu}의 상가업소 ====\n")
-    print(df_store)
+    async with Collector() as collector:
+        sido, sigungu = "서울특별시", "강동구"
+        df = await collector.collect_stores(sido, sigungu)
+    print(df)
     return
 
 
