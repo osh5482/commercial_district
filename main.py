@@ -3,6 +3,7 @@ import json
 import asyncio
 from src.collector import Collector
 from src.storage import DataStorage
+from src.preprocessor import DataPreprocessor
 from config.logging import logger
 
 
@@ -46,8 +47,82 @@ async def collect_and_save(sido: str, sigungu: str, force_update: bool = False):
     return df
 
 
+async def test_preprocessing():
+    """전처리 테스트 함수"""
+    try:
+        logger.info("=== 전처리 테스트 시작 ===")
+
+        # 1. Raw 데이터 로드
+        storage = DataStorage()
+        preprocessor = DataPreprocessor()
+
+        sido = "서울특별시"
+        sigungu = "강남구"
+
+        # Raw 데이터 로드
+        df_raw = storage.load_stores(sido, sigungu)
+        if df_raw is None:
+            logger.error("Raw 데이터가 없습니다. 먼저 데이터를 수집하세요.")
+            return
+
+        print(f"\n=== Raw 데이터 정보 ===")
+        print(f"형태: {df_raw.shape}")
+        print(f"컬럼 수: {len(df_raw.columns)}")
+        print(f"\n결측치 현황 (상위 10개):")
+        missing = df_raw.isna().sum().sort_values(ascending=False).head(10)
+        print(missing)
+
+        # 2. 전처리 실행
+        df_processed = preprocessor.preprocess(df_raw)
+
+        # 3. 전처리 결과 출력
+        print(f"\n=== 전처리 후 데이터 정보 ===")
+        print(f"형태: {df_processed.shape}")
+        print(f"제거된 행: {len(df_raw) - len(df_processed)} 건")
+
+        # 4. 요약 정보
+        summary = preprocessor.get_summary(df_processed)
+        print(f"\n=== 요약 정보 ===")
+        for key, value in summary.items():
+            print(f"{key}: {value:,}")
+
+        # 5. 숫자형 컬럼 기초 통계
+        print(f"\n=== 좌표 기초 통계 ===")
+        print(df_processed[["lon", "lat"]].describe())
+
+        # 6. 업종별 분포 (상위 10개)
+        print(f"\n=== 업종 대분류 분포 (상위 10) ===")
+        print(df_processed["indsLclsNm"].value_counts().head(10))
+
+        print(f"\n=== 업종 중분류 분포 (상위 10) ===")
+        print(df_processed["indsMclsNm"].value_counts().head(10))
+
+        # 7. 전처리 데이터 저장
+        save_path = preprocessor.save_processed(df_processed, sido, sigungu)
+        print(f"\n저장 경로: {save_path}")
+
+        # 8. 샘플 데이터 출력
+        print(f"\n=== 전처리 데이터 샘플 (5건) ===")
+        sample_cols = [
+            "bizesNm",
+            "indsLclsNm",
+            "indsMclsNm",
+            "indsSclsNm",
+            "lon",
+            "lat",
+            "rdnmAdr",
+        ]
+        print(df_processed[sample_cols].head().to_string(index=False))
+
+    except Exception as e:
+        logger.exception("전처리 테스트 중 오류 발생")
+
+    finally:
+        logger.info("=== 전처리 테스트 종료 ===")
+
+
 async def main() -> None:
-    """테스트용 메인 함수"""
+    """기본 메인 함수 (데이터 수집용)"""
     try:
         logger.info("=== 프로그램 시작 ===")
 
@@ -85,4 +160,8 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # 전처리 테스트 실행
+    asyncio.run(test_preprocessing())
+
+    # 데이터 수집이 필요한 경우 아래 주석 해제
+    # asyncio.run(main())
