@@ -40,21 +40,21 @@
       "raw": "totalCount",
       "korean": "데이터 총 개수",
       "type": "INTEGER",
-      "description": "검색 조건에 해당되는 전체 데이터의 건수 (Header)"
+      "description": "검색 조건에 해당되는 전체 데이터의 건수"
     },
     {
       "english": "num_of_rows",
       "raw": "numOfRows",
       "korean": "페이지당 건수",
       "type": "INTEGER",
-      "description": "한 페이지에 출력될 결과의 개수 (Header)"
+      "description": "한 페이지에 출력될 결과의 개수"
     },
     {
       "english": "page_no",
       "raw": "pageNo",
       "korean": "페이지 번호",
       "type": "INTEGER",
-      "description": "현재 조회된 페이지의 번호 (Header)"
+      "description": "현재 조회된 페이지의 번호"
     },
     {
       "english": "bizes_id",
