@@ -12,8 +12,9 @@ __pycache__/
 .vscode/
 .idea/
 
-# claude
+# AI Tools.md
 CLAUDE.md
+GEMINI.md
 
 # 참고파일
 *.pdf
