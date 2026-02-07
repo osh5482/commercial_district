@@ -1,0 +1,389 @@
+{
+  "columns": [
+    {
+      "english": "description",
+      "raw": "description",
+      "korean": "데이터 설명",
+      "type": "TEXT",
+      "description": "응답 데이터에 대한 개략적인 설명 (Header)"
+    },
+    {
+      "english": "columns",
+      "raw": "columns",
+      "korean": "컬럼 정보",
+      "type": "TEXT",
+      "description": "응답에 포함된 전체 컬럼 명칭 목록 (Header)"
+    },
+    {
+      "english": "stdr_ym",
+      "raw": "stdrYm",
+      "korean": "기준년월",
+      "type": "TEXT",
+      "description": "데이터의 기준이 되는 년도와 월 (Header)"
+    },
+    {
+      "english": "result_code",
+      "raw": "resultCode",
+      "korean": "결과코드",
+      "type": "TEXT",
+      "description": "API 호출 결과 상태 코드 (Header)"
+    },
+    {
+      "english": "result_msg",
+      "raw": "resultMsg",
+      "korean": "결과메시지",
+      "type": "TEXT",
+      "description": "API 호출 결과에 대한 상세 메시지 (Header)"
+    },
+    {
+      "english": "total_count",
+      "raw": "totalCount",
+      "korean": "데이터 총 개수",
+      "type": "INTEGER",
+      "description": "검색 조건에 해당되는 전체 데이터의 건수 (Header)"
+    },
+    {
+      "english": "num_of_rows",
+      "raw": "numOfRows",
+      "korean": "페이지당 건수",
+      "type": "INTEGER",
+      "description": "한 페이지에 출력될 결과의 개수 (Header)"
+    },
+    {
+      "english": "page_no",
+      "raw": "pageNo",
+      "korean": "페이지 번호",
+      "type": "INTEGER",
+      "description": "현재 조회된 페이지의 번호 (Header)"
+    },
+    {
+      "english": "bizes_id",
+      "raw": "bizesId",
+      "korean": "상가업소번호",
+      "type": "TEXT",
+      "description": "해당 상가업소에 부여된 고유 일련번호"
+    },
+    {
+      "english": "bizes_nm",
+      "raw": "bizesNm",
+      "korean": "상호명",
+      "type": "TEXT",
+      "description": "해당 상가업소의 명칭"
+    },
+    {
+      "english": "brch_nm",
+      "raw": "brchNm",
+      "korean": "지점명",
+      "type": "TEXT",
+      "description": "상가업소가 특정 브랜드의 지점인 경우의 명칭"
+    },
+    {
+      "english": "inds_lcls_cd",
+      "raw": "indsLclsCd",
+      "korean": "상권업종대분류코드",
+      "type": "TEXT",
+      "description": "상가업소의 상권업종 대분류 코드"
+    },
+    {
+      "english": "inds_lcls_nm",
+      "raw": "indsLclsNm",
+      "korean": "상권업종대분류명",
+      "type": "TEXT",
+      "description": "상권업종 대분류 코드의 명칭"
+    },
+    {
+      "english": "inds_mcls_cd",
+      "raw": "indsMclsCd",
+      "korean": "상권업종중분류코드",
+      "type": "TEXT",
+      "description": "상가업소의 상권업종 중분류 코드"
+    },
+    {
+      "english": "inds_mcls_nm",
+      "raw": "indsMclsNm",
+      "korean": "상권업종중분류명",
+      "type": "TEXT",
+      "description": "상권업종 중분류 코드의 명칭"
+    },
+    {
+      "english": "inds_scls_cd",
+      "raw": "indsSclsCd",
+      "korean": "상권업종소분류코드",
+      "type": "TEXT",
+      "description": "상가업소의 상권업종 소분류 코드"
+    },
+    {
+      "english": "inds_scls_nm",
+      "raw": "indsSclsNm",
+      "korean": "상권업종소분류명",
+      "type": "TEXT",
+      "description": "상권업종 소분류 코드의 명칭"
+    },
+    {
+      "english": "ksic_cd",
+      "raw": "ksicCd",
+      "korean": "표준산업분류코드",
+      "type": "TEXT",
+      "description": "통계청 표준산업분류 코드"
+    },
+    {
+      "english": "ksic_nm",
+      "raw": "ksicNm",
+      "korean": "표준산업분류명",
+      "type": "TEXT",
+      "description": "표준산업분류 코드의 명칭"
+    },
+    {
+      "english": "ctprvn_cd",
+      "raw": "ctprvnCd",
+      "korean": "시도코드",
+      "type": "TEXT",
+      "description": "상가 소재지의 광역시도 코드"
+    },
+    {
+      "english": "ctprvn_nm",
+      "raw": "ctprvnNm",
+      "korean": "시도명",
+      "type": "TEXT",
+      "description": "광역시도 명칭"
+    },
+    {
+      "english": "signgu_cd",
+      "raw": "signguCd",
+      "korean": "시군구코드",
+      "type": "TEXT",
+      "description": "상가 소재지의 시군구 코드"
+    },
+    {
+      "english": "signgu_nm",
+      "raw": "signguNm",
+      "korean": "시군구명",
+      "type": "TEXT",
+      "description": "시군구 명칭"
+    },
+    {
+      "english": "adong_cd",
+      "raw": "adongCd",
+      "korean": "행정동코드",
+      "type": "TEXT",
+      "description": "상가 소재지의 행정동 코드"
+    },
+    {
+      "english": "adong_nm",
+      "raw": "adongNm",
+      "korean": "행정동명",
+      "type": "TEXT",
+      "description": "행정동 명칭"
+    },
+    {
+      "english": "ldong_cd",
+      "raw": "ldongCd",
+      "korean": "법정동코드",
+      "type": "TEXT",
+      "description": "상가 소재지의 법정동 코드"
+    },
+    {
+      "english": "ldong_nm",
+      "raw": "ldongNm",
+      "korean": "법정동명",
+      "type": "TEXT",
+      "description": "법정동 명칭"
+    },
+    {
+      "english": "lno_cd",
+      "raw": "lnoCd",
+      "korean": "PNU코드",
+      "type": "TEXT",
+      "description": "필지별 고유번호 (19자리)"
+    },
+    {
+      "english": "plot_sct_cd",
+      "raw": "plotSctCd",
+      "korean": "대지구분코드",
+      "type": "TEXT",
+      "description": "대지 구분 (1: 대지, 2: 산)"
+    },
+    {
+      "english": "plot_sct_nm",
+      "raw": "plotSctNm",
+      "korean": "대지구분명",
+      "type": "TEXT",
+      "description": "대지 구분 명칭"
+    },
+    {
+      "english": "lno_mnno",
+      "raw": "lnoMnno",
+      "korean": "지번본번지",
+      "type": "INTEGER",
+      "description": "지번 주소의 본번"
+    },
+    {
+      "english": "lno_slno",
+      "raw": "lnoSlno",
+      "korean": "지번부번지",
+      "type": "INTEGER",
+      "description": "지번 주소의 부번"
+    },
+    {
+      "english": "lno_adr",
+      "raw": "lnoAdr",
+      "korean": "지번주소",
+      "type": "TEXT",
+      "description": "상가의 전체 지번 주소"
+    },
+    {
+      "english": "rdnm_cd",
+      "raw": "rdnmCd",
+      "korean": "도로명코드",
+      "type": "TEXT",
+      "description": "도로명 주소의 도로명 코드"
+    },
+    {
+      "english": "rdnm",
+      "raw": "rdnm",
+      "korean": "도로명",
+      "type": "TEXT",
+      "description": "도로명 주소의 도로명 명칭"
+    },
+    {
+      "english": "bld_mnno",
+      "raw": "bldMnno",
+      "korean": "건물본번지",
+      "type": "INTEGER",
+      "description": "도로명 주소의 건물 본번"
+    },
+    {
+      "english": "bld_slno",
+      "raw": "bldSlno",
+      "korean": "건물부번지",
+      "type": "INTEGER",
+      "description": "도로명 주소의 건물 부번"
+    },
+    {
+      "english": "bld_mng_no",
+      "raw": "bldMngNo",
+      "korean": "건물관리번호",
+      "type": "TEXT",
+      "description": "건물별 고유 식별 번호 (25자리)"
+    },
+    {
+      "english": "bld_nm",
+      "raw": "bldNm",
+      "korean": "건물명",
+      "type": "TEXT",
+      "description": "해당 건물의 명칭"
+    },
+    {
+      "english": "rdnm_adr",
+      "raw": "rdnmAdr",
+      "korean": "도로명주소",
+      "type": "TEXT",
+      "description": "상가의 전체 도로명 주소"
+    },
+    {
+      "english": "old_zipcd",
+      "raw": "oldZipcd",
+      "korean": "구우편번호",
+      "type": "TEXT",
+      "description": "개편 전 6자리 우편번호"
+    },
+    {
+      "english": "new_zipcd",
+      "raw": "newZipcd",
+      "korean": "신우편번호",
+      "type": "TEXT",
+      "description": "개편 후 5자리 국가기초구역번호"
+    },
+    {
+      "english": "dong_no",
+      "raw": "dongNo",
+      "korean": "동정보",
+      "type": "TEXT",
+      "description": "건물 내 동 상세 정보"
+    },
+    {
+      "english": "flr_no",
+      "raw": "flrNo",
+      "korean": "층정보",
+      "type": "TEXT",
+      "description": "상가가 위치한 층수"
+    },
+    {
+      "english": "ho_no",
+      "raw": "hoNo",
+      "korean": "호정보",
+      "type": "TEXT",
+      "description": "건물 내 호 상세 정보"
+    },
+    {
+      "english": "lon",
+      "raw": "lon",
+      "korean": "경도",
+      "type": "REAL",
+      "description": "WGS84 기준 경도 좌표값"
+    },
+    {
+      "english": "lat",
+      "raw": "lat",
+      "korean": "위도",
+      "type": "REAL",
+      "description": "WGS84 기준 위도 좌표값"
+    },
+    {
+      "english": "trar_no",
+      "raw": "trarNo",
+      "korean": "상권번호",
+      "type": "TEXT",
+      "description": "주요 상권 영역에 부여된 일련번호"
+    },
+    {
+      "english": "main_trar_nm",
+      "raw": "mainTrarNm",
+      "korean": "상권명",
+      "type": "TEXT",
+      "description": "주요 상권의 명칭"
+    },
+    {
+      "english": "trar_area",
+      "raw": "trarArea",
+      "korean": "상권면적",
+      "type": "REAL",
+      "description": "상권이 차지하는 면적 (㎡)"
+    },
+    {
+      "english": "coord_num",
+      "raw": "coordNum",
+      "korean": "좌표개수",
+      "type": "INTEGER",
+      "description": "상권 영역 폴리곤을 구성하는 좌표의 개수"
+    },
+    {
+      "english": "coords",
+      "raw": "coords",
+      "korean": "좌표값",
+      "type": "TEXT",
+      "description": "WKT 형식의 상권 영역 좌표 문자열"
+    },
+    {
+      "english": "stdr_dt",
+      "raw": "stdrDt",
+      "korean": "데이터기준일자",
+      "type": "TEXT",
+      "description": "데이터 배포 또는 기준 일자"
+    },
+    {
+      "english": "result",
+      "raw": "result",
+      "korean": "처리결과",
+      "type": "TEXT",
+      "description": "정보 변경 요청에 대한 처리 결과"
+    },
+    {
+      "english": "message",
+      "raw": "message",
+      "korean": "처리메시지",
+      "type": "TEXT",
+      "description": "요청 처리 결과에 대한 설명 메시지"
+    }
+  ]
+}
