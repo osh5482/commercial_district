@@ -47,7 +47,7 @@ async def collect_and_save(sido: str, sigungu: str, force_update: bool = False):
     return df
 
 
-async def test_preprocessing():
+async def main() -> None:
     """전처리 테스트 함수"""
     try:
         logger.info("=== 전처리 테스트 시작 ===")
@@ -119,49 +119,8 @@ async def test_preprocessing():
 
     finally:
         logger.info("=== 전처리 테스트 종료 ===")
-
-
-async def main() -> None:
-    """기본 메인 함수 (데이터 수집용)"""
-    try:
-        logger.info("=== 프로그램 시작 ===")
-
-        # 데이터 수집 설정
-        sido = "서울특별시"
-        sigungu = "강남구"
-        force_update = False  # True로 변경하면 강제로 API 호출
-
-        df = await collect_and_save(sido, sigungu, force_update)
-
-        # 기본 정보 출력
-        logger.info(f"데이터 형태: {df.shape}")
-        logger.info(f"컬럼: {df.columns.tolist()}")
-
-        print("\n=== 데이터 미리보기 ===")
-        print(df.head())
-
-        print("\n=== 기본 통계 ===")
-        print(df.describe())
-
-        # 저장된 파일 정보 확인
-        storage = DataStorage()
-        file_info = storage.get_file_info()
-        if not file_info.empty:
-            print("\n=== 저장된 파일 목록 ===")
-            print(file_info.to_string(index=False))
-
-    except Exception as e:
-        logger.exception(f"프로그램 실행 중 오류 발생")
-
-    finally:
-        logger.info("=== 프로그램 종료 ===")
-
     return
 
 
 if __name__ == "__main__":
-    # 전처리 테스트 실행
-    asyncio.run(test_preprocessing())
-
-    # 데이터 수집이 필요한 경우 아래 주석 해제
-    # asyncio.run(main())
+    asyncio.run(main())
