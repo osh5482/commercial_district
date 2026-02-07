@@ -1,6 +1,7 @@
 # main.py
 import json
 import asyncio
+import pandas as pd
 from src.collector import Collector
 from src.storage import DataStorage
 from src.preprocessor import DataPreprocessor
@@ -17,7 +18,9 @@ def print_json(json_data: dict | list) -> None:
     return
 
 
-async def collect_and_save(sido: str, sigungu: str, force_update: bool = False):
+async def collect_and_save(
+    sido: str, sigungu: str, force_update: bool = False
+) -> pd.DataFrame:
     """상가업소 데이터 수집 및 저장
 
     Args:
@@ -47,7 +50,7 @@ async def collect_and_save(sido: str, sigungu: str, force_update: bool = False):
     return df
 
 
-async def main() -> None:
+async def test_preprocessing() -> None:
     """전처리 테스트 함수"""
     try:
         logger.info("=== 전처리 테스트 시작 ===")
@@ -123,4 +126,4 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(test_preprocessing())
