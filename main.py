@@ -321,5 +321,5 @@ if __name__ == "__main__":
 
     # 2. 데이터 조회 및 분석 테스트
     # query_database()                       # 전체 조회
-    query_database(sigungu="강동구")  # 특정 지역 분석
-    # query_database(keyword="커피")  # 키워드 검색 테스트
+    # query_database(sigungu="강동구")  # 특정 지역 분석
+    query_database(keyword="카페")  # 키워드 검색 테스트
