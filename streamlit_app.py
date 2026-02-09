@@ -8,6 +8,7 @@
 import streamlit as st
 from streamlit_folium import st_folium
 import folium
+from folium.plugins import HeatMap
 import pandas as pd
 import plotly.express as px
 from src.database import DatabaseManager
@@ -135,18 +136,16 @@ def create_map(
     df: pd.DataFrame,
     center_lat: float = 37.5,
     center_lon: float = 127.05,
-    max_markers: int = 2000,
 ):
-    """상가업소 위치를 CircleMarker로 표시하는 인터랙티브 Folium 지도 생성
+    """상가업소 위치를 히트맵으로 표시하는 인터랙티브 Folium 지도 생성
 
     Args:
         df: 상가업소 데이터프레임 (lat, lon 컬럼 포함)
         center_lat: 지도 중심 위도 (기본값: 37.5)
         center_lon: 지도 중심 경도 (기본값: 127.05)
-        max_markers: 표시할 최대 마커 개수 (기본값: 2000)
 
     Returns:
-        folium.Map: 인터랙티브 지도 객체
+        folium.Map: 인터랙티브 히트맵 지도 객체
     """
     # 1. 기본 지도 생성 (OpenStreetMap 타일 사용)
     m = folium.Map(
@@ -155,33 +154,22 @@ def create_map(
         tiles="OpenStreetMap",
     )
 
-    # 2. 좌표가 있는 데이터만 필터링 (최대 개수 제한)
-    df_map = df[df["lat"].notna() & df["lon"].notna()].head(max_markers)
+    # 2. 좌표가 있는 데이터만 필터링 (모든 데이터 사용)
+    df_map = df[df["lat"].notna() & df["lon"].notna()]
 
-    # 3. 각 상가업소를 CircleMarker로 추가
-    for _, row in df_map.iterrows():
-        # 3-1. 팝업 HTML 생성 (상호명, 업종, 주소 표시)
-        popup_html = f"""
-        <div style="font-family: Arial; font-size: 12px; width: 220px;">
-            <b style="color: #1f77b4; font-size: 14px;">{row['bizes_nm']}</b><br>
-            <b>업종:</b> {row['inds_mcls_nm']}<br>
-            <b>주소:</b> {row['rdnm_adr'][:40]}...
-        </div>
-        """
+    # 3. 히트맵 데이터 생성 (위도, 경도 리스트)
+    heat_data = [[row["lat"], row["lon"]] for _, row in df_map.iterrows()]
 
-        # 3-2. CircleMarker 추가 (작고 가벼운 원형 마커)
-        folium.CircleMarker(
-            location=[row["lat"], row["lon"]],
-            radius=4,
-            popup=folium.Popup(popup_html, max_width=250),
-            color="#3388ff",
-            fill=True,
-            fillColor="#3388ff",
-            fillOpacity=0.6,
-            weight=1,
-        ).add_to(m)
+    # 4. 히트맵 레이어 추가
+    HeatMap(
+        heat_data,
+        min_opacity=0.2,
+        radius=15,
+        blur=20,
+        gradient={0.3: "blue", 0.4: "lime", 0.7: "yellow", 1.0: "red"},
+    ).add_to(m)
 
-    # 4. 완성된 지도 객체 반환
+    # 5. 완성된 지도 객체 반환
     return m
 
 
@@ -404,17 +392,15 @@ def main():
             center_lat = has_coords["lat"].mean()
             center_lon = has_coords["lon"].mean()
 
-            # 7-3. Folium 지도 생성
-            map_obj = create_map(filtered_df, center_lat, center_lon, max_markers=2000)
+            # 7-3. Folium 히트맵 지도 생성 (모든 데이터 표시)
+            map_obj = create_map(filtered_df, center_lat, center_lon)
 
             # 7-4. Streamlit에 지도 표시 (높이 500px)
             # returned_objects: 지도 상호작용 시 반환되는 객체 목록 (빈 리스트로 설정하여 리렌더링 최소화)
             st_folium(map_obj, width=None, height=500, returned_objects=[])
 
             # 7-5. 지도 데이터 정보 표시
-            st.caption(
-                f"💡 지도에 표시된 점포: {min(len(has_coords), 2000):,} / {len(has_coords):,} 개"
-            )
+            st.caption(f"💡 히트맵에 표시된 점포: {len(has_coords):,} 개 (모든 데이터)")
         else:
             # 7-6. 좌표가 없는 경우 경고 메시지
             st.warning("좌표 정보가 없는 데이터입니다.")
