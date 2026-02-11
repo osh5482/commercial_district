@@ -174,7 +174,7 @@ def create_map(
         min_opacity=0.2,
         radius=15,
         blur=20,
-        gradient={0.3: "blue", 0.4: "lime", 0.7: "yellow", 1.0: "red"},
+        gradient={0.3: "blue", 0.4: "green", 0.5: "yellow", 0.6: "orange", 0.9: "red"},
     ).add_to(m)
 
     # 6. 완성된 지도 객체 반환
