@@ -8,7 +8,7 @@
 import streamlit as st
 from streamlit_folium import st_folium
 import folium
-from folium.plugins import HeatMap
+from folium.plugins import HeatMap, Fullscreen
 import pandas as pd
 import plotly.express as px
 from src.database import DatabaseManager
@@ -154,13 +154,21 @@ def create_map(
         tiles="OpenStreetMap",
     )
 
-    # 2. 좌표가 있는 데이터만 필터링 (모든 데이터 사용)
+    # 2. 전체화면 버튼 추가
+    Fullscreen(
+        position="topright",
+        title="전체화면으로 보기",
+        title_cancel="전체화면 종료",
+        force_separate_button=True,
+    ).add_to(m)
+
+    # 3. 좌표가 있는 데이터만 필터링 (모든 데이터 사용)
     df_map = df[df["lat"].notna() & df["lon"].notna()]
 
-    # 3. 히트맵 데이터 생성 (위도, 경도 리스트)
+    # 4. 히트맵 데이터 생성 (위도, 경도 리스트)
     heat_data = [[row["lat"], row["lon"]] for _, row in df_map.iterrows()]
 
-    # 4. 히트맵 레이어 추가
+    # 5. 히트맵 레이어 추가
     HeatMap(
         heat_data,
         min_opacity=0.2,
@@ -169,7 +177,7 @@ def create_map(
         gradient={0.3: "blue", 0.4: "lime", 0.7: "yellow", 1.0: "red"},
     ).add_to(m)
 
-    # 5. 완성된 지도 객체 반환
+    # 6. 완성된 지도 객체 반환
     return m
 
 
