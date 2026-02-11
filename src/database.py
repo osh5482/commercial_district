@@ -1,45 +1,87 @@
 # src/database.py
-import sqlite3
 import json
 import pandas as pd
 from pathlib import Path
 from typing import Optional, Dict, List, Tuple
+from sqlalchemy import (
+    create_engine,
+    text,
+    inspect,
+    Integer,
+    String,
+    Float,
+    Boolean,
+    Text,
+    MetaData,
+    Table,
+    Column,
+    Index,
+)
+from sqlalchemy.pool import QueuePool
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from geoalchemy2 import Geometry
 from config.logging import logger
+from config.settings import POSTGRES_URL
 
 
 class DatabaseManager:
-    """SQLite 데이터베이스 관리 클래스
+    """PostgreSQL + PostGIS 데이터베이스 관리 클래스
 
-    전처리된 상가업소 데이터를 SQLite DB에 저장하고 조회하는 기능 제공
+    전처리된 상가업소 데이터를 PostgreSQL DB에 저장하고 조회하는 기능 제공
     - 메타데이터 기반 자동 스키마 생성
     - 영문/한글 컬럼명 매핑
     - 배치 삽입 및 인덱스 최적화
+    - PostGIS 지리 데이터 타입 지원
+    - 연결 풀링을 통한 성능 최적화
     """
 
-    def __init__(self, db_path: str = "data/commercial_district.db"):
+    def __init__(self, db_url: str = None):
         """DatabaseManager 초기화
 
         Args:
-            db_path: SQLite DB 파일 경로 (기본값: "data/commercial_district.db")
+            db_url: PostgreSQL 연결 URL (기본값: config.settings.POSTGRES_URL)
+                   형식: postgresql://user:password@host:port/database
         """
-        self.db_path = Path(db_path)
-        self.conn: Optional[sqlite3.Connection] = None
+        self.db_url = db_url or POSTGRES_URL
+        self.engine = None
+        self.conn = None
         self.column_mapping: Dict[str, Dict[str, str]] = {}
 
-        # DB 디렉토리 생성
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        logger.info(f"DatabaseManager 초기화: {self._safe_url()}")
 
-        logger.info(f"DatabaseManager 초기화: {self.db_path}")
+    def _safe_url(self) -> str:
+        """비밀번호를 마스킹한 안전한 연결 URL 반환"""
+        # postgresql://user:***@host:port/database 형태로 변환
+        if not self.db_url:
+            return "None"
+        parts = self.db_url.split("@")
+        if len(parts) == 2:
+            user_part = parts[0].split(":")[0]
+            return f"{user_part}:***@{parts[1]}"
+        return "***"
 
-    def connect(self) -> sqlite3.Connection:
-        """SQLite 데이터베이스 연결
+    def connect(self):
+        """PostgreSQL 데이터베이스 연결 (연결 풀링 사용)
 
         Returns:
-            sqlite3.Connection 객체
+            SQLAlchemy Connection 객체
         """
+        if self.engine is None:
+            # SQLAlchemy Engine 생성 (연결 풀링 활성화)
+            self.engine = create_engine(
+                self.db_url,
+                poolclass=QueuePool,
+                pool_size=5,  # 기본 연결 풀 크기
+                max_overflow=10,  # 추가 연결 가능 수
+                pool_pre_ping=True,  # 연결 유효성 사전 검사
+                echo=False,  # SQL 로깅 비활성화 (필요시 True)
+            )
+            logger.info(f"DB Engine 생성 완료: {self._safe_url()}")
+
         if self.conn is None:
-            self.conn = sqlite3.connect(str(self.db_path))
-            logger.info(f"DB 연결 성공: {self.db_path}")
+            self.conn = self.engine.connect()
+            logger.info("DB 연결 성공")
+
         return self.conn
 
     def close(self) -> None:
@@ -48,6 +90,14 @@ class DatabaseManager:
             self.conn.close()
             self.conn = None
             logger.info("DB 연결 종료")
+
+    def dispose(self) -> None:
+        """엔진 및 연결 풀 완전 종료"""
+        if self.engine:
+            self.engine.dispose()
+            self.engine = None
+            self.conn = None
+            logger.info("DB 엔진 및 연결 풀 종료")
 
     def __enter__(self):
         """컨텍스트 매니저 진입"""
@@ -111,6 +161,40 @@ class DatabaseManager:
             logger.error(f"메타데이터 파싱 실패: {e}")
             raise
 
+    def _map_type_to_sqlalchemy(self, col_type: str, col_name: str):
+        """메타데이터 타입을 SQLAlchemy 타입으로 변환
+
+        Args:
+            col_type: 메타데이터의 타입 문자열 (예: "TEXT", "INTEGER")
+            col_name: 컬럼명 (geometry 판단용)
+
+        Returns:
+            SQLAlchemy 타입 객체
+        """
+        # 위도/경도 컬럼은 PostGIS Geometry 타입으로 처리 (나중에 확장 가능)
+        # 현재는 DOUBLE로 유지 (기존 데이터 호환성)
+        type_mapping = {
+            "TEXT": Text,
+            "INTEGER": Integer,
+            "REAL": Float,
+            "DOUBLE": Float,
+            "BOOLEAN": Boolean,
+        }
+
+        # 기본 타입 매핑
+        sqlalchemy_type = type_mapping.get(col_type.upper(), Text)
+
+        # VARCHAR 처리 (예: "VARCHAR(255)")
+        if "VARCHAR" in col_type.upper():
+            # VARCHAR 길이 추출 (예: VARCHAR(255) -> 255)
+            try:
+                length = int(col_type.split("(")[1].split(")")[0])
+                return String(length)
+            except:
+                return String(255)  # 기본 길이
+
+        return sqlalchemy_type
+
     def create_table_from_metadata(
         self,
         table_name: str = "stores",
@@ -125,10 +209,10 @@ class DatabaseManager:
             df: 참조할 DataFrame (제공되면 해당 컬럼만 테이블에 포함)
 
         Raises:
-            sqlite3.Error: 테이블 생성 실패
+            SQLAlchemyError: 테이블 생성 실패
         """
         # 메타데이터 로드
-        metadata = self._load_metadata(metadata_path)
+        metadata_json = self._load_metadata(metadata_path)
 
         # Header 컬럼 (API 메타정보) 제외
         header_columns = {
@@ -155,10 +239,11 @@ class DatabaseManager:
         else:
             existing_columns = None
 
-        # 테이블 컬럼 정의 생성
-        column_definitions = []
+        # SQLAlchemy MetaData 및 Column 정의 생성
+        metadata_obj = MetaData()
+        columns = []
 
-        for col in metadata["columns"]:
+        for col in metadata_json["columns"]:
             english_name = col["english"]
             col_type = col["type"]
 
@@ -170,9 +255,14 @@ class DatabaseManager:
             if existing_columns is not None and english_name not in existing_columns:
                 continue
 
+            # SQLAlchemy 타입 변환
+            sqlalchemy_type = self._map_type_to_sqlalchemy(col_type, english_name)
+
             # PRIMARY KEY 설정 (상가업소번호)
             if english_name == "bizes_id":
-                column_definitions.append(f"{english_name} {col_type} PRIMARY KEY")
+                columns.append(
+                    Column(english_name, sqlalchemy_type, primary_key=True)
+                )
             # NOT NULL 설정 (필수 컬럼)
             elif english_name in [
                 "bizes_nm",
@@ -180,27 +270,22 @@ class DatabaseManager:
                 "inds_mcls_nm",
                 "inds_scls_nm",
             ]:
-                column_definitions.append(f"{english_name} {col_type} NOT NULL")
+                columns.append(Column(english_name, sqlalchemy_type, nullable=False))
             else:
-                column_definitions.append(f"{english_name} {col_type}")
+                columns.append(Column(english_name, sqlalchemy_type))
 
-        # CREATE TABLE SQL 생성
-        create_sql = f"""
-        CREATE TABLE IF NOT EXISTS {table_name} (
-            {', '.join(column_definitions)}
-        )
-        """
+        # Table 객체 생성
+        table = Table(table_name, metadata_obj, *columns)
 
         try:
-            cursor = self.conn.cursor()
-            cursor.execute(create_sql)
-            self.conn.commit()
+            # 테이블 생성 (이미 존재하면 스킵)
+            metadata_obj.create_all(self.engine, checkfirst=True)
             logger.success(
-                f"테이블 생성 완료: {table_name} ({len(column_definitions)} 컬럼)"
+                f"테이블 생성 완료: {table_name} ({len(columns)} 컬럼)"
             )
-            logger.debug(f"생성된 컬럼: {[cd.split()[0] for cd in column_definitions]}")
+            logger.debug(f"생성된 컬럼: {[col.name for col in columns]}")
 
-        except sqlite3.Error as e:
+        except SQLAlchemyError as e:
             logger.error(f"테이블 생성 실패: {e}")
             raise
 
@@ -211,16 +296,15 @@ class DatabaseManager:
             table_name: 인덱스를 생성할 테이블명
 
         Raises:
-            sqlite3.Error: 인덱스 생성 실패
+            SQLAlchemyError: 인덱스 생성 실패
         """
-        # 테이블의 실제 컬럼 조회
-        cursor = self.conn.cursor()
-        cursor.execute(f"PRAGMA table_info({table_name})")
-        existing_columns = {row[1] for row in cursor.fetchall()}
+        # Inspector로 테이블의 실제 컬럼 조회
+        inspector = inspect(self.engine)
+        existing_columns = {col["name"] for col in inspector.get_columns(table_name)}
 
         logger.debug(f"테이블 '{table_name}'의 컬럼: {existing_columns}")
 
-        # 인덱스 정의 (이름, 컬럼 리스트, SQL 템플릿)
+        # 인덱스 정의 (이름, 컬럼 리스트)
         index_configs = [
             ("idx_region", ["ctprvn_nm", "signgu_nm", "adong_nm"]),
             ("idx_industry", ["inds_lcls_nm", "inds_mcls_nm", "inds_scls_nm"]),
@@ -236,8 +320,10 @@ class DatabaseManager:
             for idx_name, idx_columns in index_configs:
                 # 모든 컬럼이 테이블에 존재하는지 확인
                 if all(col in existing_columns for col in idx_columns):
+                    # CREATE INDEX IF NOT EXISTS 실행
                     idx_sql = f"CREATE INDEX IF NOT EXISTS {idx_name} ON {table_name}({', '.join(idx_columns)})"
-                    cursor.execute(idx_sql)
+                    self.conn.execute(text(idx_sql))
+                    self.conn.commit()
                     logger.debug(f"인덱스 생성: {idx_name} ({', '.join(idx_columns)})")
                     created_indexes.append(idx_name)
                 else:
@@ -248,12 +334,11 @@ class DatabaseManager:
                         f"인덱스 '{idx_name}' 생략: 컬럼 없음 ({', '.join(missing_cols)})"
                     )
 
-            self.conn.commit()
             logger.success(
                 f"인덱스 생성 완료: {len(created_indexes)} 개 (생략: {len(index_configs) - len(created_indexes)} 개)"
             )
 
-        except sqlite3.Error as e:
+        except SQLAlchemyError as e:
             logger.error(f"인덱스 생성 실패: {e}")
             raise
 
@@ -279,7 +364,7 @@ class DatabaseManager:
 
         Raises:
             ValueError: 컬럼 매핑 실패
-            sqlite3.Error: DB 삽입 실패
+            SQLAlchemyError: DB 삽입 실패
         """
         if not self.column_mapping:
             logger.warning("컬럼 매핑이 로드되지 않음. 메타데이터 로드 시도...")
@@ -314,13 +399,12 @@ class DatabaseManager:
             logger.debug(f"Header 컬럼 제거: {columns_to_drop}")
 
         # recreate_table=True인 경우만 테이블 재생성
-        # (if_exists='replace'는 pandas의 to_sql()에 맡김)
         if recreate_table:
             logger.info(f"테이블 재생성 중: {table_name}")
 
             # 1. 기존 테이블 삭제
-            cursor = self.conn.cursor()
-            cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
+            drop_sql = f"DROP TABLE IF EXISTS {table_name} CASCADE"
+            self.conn.execute(text(drop_sql))
             self.conn.commit()
             logger.debug(f"기존 테이블 삭제: {table_name}")
 
@@ -338,48 +422,50 @@ class DatabaseManager:
         logger.info(f"데이터 삽입 시작: {len(df_copy)} 건 ({actual_if_exists} 모드)")
 
         try:
-            # DataFrame → SQLite 삽입
+            # DataFrame → PostgreSQL 삽입
             df_copy.to_sql(
                 name=table_name,
-                con=self.conn,
+                con=self.engine,  # engine 사용 (connection 아님)
                 if_exists=actual_if_exists,
                 index=False,
                 chunksize=batch_size,
+                method="multi",  # 배치 삽입 최적화
             )
 
             logger.success(f"데이터 삽입 완료: {len(df_copy)} 건")
             return len(df_copy)
 
-        except sqlite3.IntegrityError as e:
+        except IntegrityError as e:
             logger.error(f"중복 키 오류: {e}")
             raise
-        except sqlite3.Error as e:
+        except SQLAlchemyError as e:
             logger.error(f"데이터 삽입 실패: {e}")
             raise
 
-    def query(self, sql: str, params: Optional[Tuple] = None) -> pd.DataFrame:
+    def query(self, sql: str, params: Optional[Dict] = None) -> pd.DataFrame:
         """SQL 쿼리 실행 및 결과 반환
 
         Args:
             sql: 실행할 SQL 쿼리
-            params: 쿼리 파라미터 (? placeholder 사용)
+            params: 쿼리 파라미터 (:name placeholder 사용)
 
         Returns:
             쿼리 결과 DataFrame
 
         Raises:
-            sqlite3.Error: 쿼리 실행 실패
+            SQLAlchemyError: 쿼리 실행 실패
         """
         try:
             logger.debug(f"SQL 실행: {sql}")
             if params:
                 logger.debug(f"파라미터: {params}")
 
-            df = pd.read_sql_query(sql, self.conn, params=params)
+            # SQLAlchemy text() 사용
+            df = pd.read_sql_query(text(sql), self.conn, params=params)
             logger.info(f"쿼리 완료: {len(df)} 건")
             return df
 
-        except sqlite3.OperationalError as e:
+        except SQLAlchemyError as e:
             logger.error(f"쿼리 실행 오류: {e}")
             logger.error(f"SQL: {sql}")
             raise
@@ -402,7 +488,7 @@ class DatabaseManager:
 
         Raises:
             KeyError: 존재하지 않는 한글 컬럼명
-            sqlite3.Error: 쿼리 실행 실패
+            SQLAlchemyError: 쿼리 실행 실패
         """
         if not self.column_mapping:
             logger.warning("컬럼 매핑이 로드되지 않음. 메타데이터 로드 시도...")
@@ -428,15 +514,16 @@ class DatabaseManager:
 
         # 2. WHERE 절 생성
         where_clause = ""
-        params = []
+        params = {}
 
         if filters:
             try:
                 conditions = []
-                for korean_col, value in filters.items():
+                for i, (korean_col, value) in enumerate(filters.items()):
                     english_col = korean_to_english[korean_col]
-                    conditions.append(f"{english_col} = ?")
-                    params.append(value)
+                    param_name = f"param_{i}"
+                    conditions.append(f"{english_col} = :{param_name}")
+                    params[param_name] = value
 
                 where_clause = " WHERE " + " AND ".join(conditions)
             except KeyError as e:
@@ -452,7 +539,7 @@ class DatabaseManager:
         sql = f"SELECT {select_clause} FROM stores{where_clause}{limit_clause}"
 
         # 5. 쿼리 실행
-        df = self.query(sql, tuple(params) if params else None)
+        df = self.query(sql, params if params else None)
 
         # 6. 컬럼명 영문 → 한글 변환
         if korean_columns:
@@ -488,13 +575,8 @@ class DatabaseManager:
             테이블 존재 여부
         """
         try:
-            cursor = self.conn.cursor()
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-                (table_name,),
-            )
-            result = cursor.fetchone()
-            exists = result is not None
+            inspector = inspect(self.engine)
+            exists = table_name in inspector.get_table_names()
 
             if exists:
                 logger.debug(f"테이블 '{table_name}' 존재 확인")
@@ -503,7 +585,7 @@ class DatabaseManager:
 
             return exists
 
-        except sqlite3.Error as e:
+        except SQLAlchemyError as e:
             logger.error(f"테이블 존재 확인 실패: {e}")
             raise
 
@@ -525,16 +607,19 @@ class DatabaseManager:
             if not self.table_exists(table_name):
                 return 0
 
-            cursor = self.conn.cursor()
-            cursor.execute(
-                f"SELECT COUNT(*) FROM {table_name} WHERE ctprvn_nm = ? AND signgu_nm = ?",
-                (sido, sigungu),
-            )
-            count = cursor.fetchone()[0]
+            sql = f"""
+                SELECT COUNT(*) as count
+                FROM {table_name}
+                WHERE ctprvn_nm = :sido AND signgu_nm = :sigungu
+            """
+            result = self.conn.execute(
+                text(sql), {"sido": sido, "sigungu": sigungu}
+            ).fetchone()
+            count = result[0] if result else 0
             logger.debug(f"{sido} {sigungu} 데이터: {count} 건")
             return count
 
-        except sqlite3.Error as e:
+        except SQLAlchemyError as e:
             logger.error(f"지역 데이터 건수 조회 실패: {e}")
             raise
 
@@ -552,17 +637,17 @@ class DatabaseManager:
             삭제된 레코드 수
         """
         try:
-            cursor = self.conn.cursor()
-            cursor.execute(
-                f"DELETE FROM {table_name} WHERE ctprvn_nm = ? AND signgu_nm = ?",
-                (sido, sigungu),
-            )
-            deleted_count = cursor.rowcount
+            sql = f"""
+                DELETE FROM {table_name}
+                WHERE ctprvn_nm = :sido AND signgu_nm = :sigungu
+            """
+            result = self.conn.execute(text(sql), {"sido": sido, "sigungu": sigungu})
             self.conn.commit()
+            deleted_count = result.rowcount
             logger.info(f"{sido} {sigungu} 데이터 삭제: {deleted_count} 건")
             return deleted_count
 
-        except sqlite3.Error as e:
+        except SQLAlchemyError as e:
             logger.error(f"지역 데이터 삭제 실패: {e}")
             raise
 
@@ -576,27 +661,31 @@ class DatabaseManager:
             통계 정보 딕셔너리
         """
         try:
-            cursor = self.conn.cursor()
-
             # 총 레코드 수
-            cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
-            total_count = cursor.fetchone()[0]
+            sql_count = f"SELECT COUNT(*) as count FROM {table_name}"
+            total_count = self.conn.execute(text(sql_count)).fetchone()[0]
 
-            # 데이터베이스 파일 크기 (바이트)
-            db_size = self.db_path.stat().st_size if self.db_path.exists() else 0
-            table_size_mb = db_size / (1024 * 1024)
+            # 테이블 크기 (MB) - PostgreSQL pg_total_relation_size 사용
+            sql_size = f"""
+                SELECT pg_total_relation_size('{table_name}') / (1024.0 * 1024.0) as size_mb
+            """
+            table_size_mb = self.conn.execute(text(sql_size)).fetchone()[0]
 
             # 시도 수
-            cursor.execute(f"SELECT COUNT(DISTINCT ctprvn_nm) FROM {table_name}")
-            sido_count = cursor.fetchone()[0]
+            sql_sido = f"SELECT COUNT(DISTINCT ctprvn_nm) as count FROM {table_name}"
+            sido_count = self.conn.execute(text(sql_sido)).fetchone()[0]
 
             # 시군구 수
-            cursor.execute(f"SELECT COUNT(DISTINCT signgu_nm) FROM {table_name}")
-            sigungu_count = cursor.fetchone()[0]
+            sql_sigungu = (
+                f"SELECT COUNT(DISTINCT signgu_nm) as count FROM {table_name}"
+            )
+            sigungu_count = self.conn.execute(text(sql_sigungu)).fetchone()[0]
 
             # 업종 대분류 수
-            cursor.execute(f"SELECT COUNT(DISTINCT inds_lcls_nm) FROM {table_name}")
-            industry_count = cursor.fetchone()[0]
+            sql_industry = (
+                f"SELECT COUNT(DISTINCT inds_lcls_nm) as count FROM {table_name}"
+            )
+            industry_count = self.conn.execute(text(sql_industry)).fetchone()[0]
 
             stats = {
                 "총_레코드_수": total_count,
@@ -609,6 +698,6 @@ class DatabaseManager:
             logger.info(f"테이블 통계: {stats}")
             return stats
 
-        except sqlite3.Error as e:
+        except SQLAlchemyError as e:
             logger.error(f"통계 조회 실패: {e}")
             raise

@@ -39,6 +39,7 @@ dependencies:
   - colorama=0.4.6
   - folium=0.20.0
   - frozenlist=1.7.0
+  - geoalchemy2=0.16.0
   - gitdb=4.0.12
   - gitpython=3.1.46
   - h2=4.3.0
@@ -125,6 +126,7 @@ dependencies:
   - python-dotenv=1.2.1
   - python-tzdata=2025.3
   - python_abi=3.12
+  - psycopg2=2.9.10
   - pytz=2025.2
   - pyyaml=6.0.3
   - re2=2025.11.05
@@ -135,6 +137,7 @@ dependencies:
   - six=1.17.0
   - smmap=5.0.2
   - snappy=1.2.2
+  - sqlalchemy=2.0.40
   - streamlit=1.54.0
   - streamlit-folium=0.26.1
   - tbb=2022.3.0
