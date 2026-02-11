@@ -338,6 +338,159 @@ class DatabaseManager:
             logger.error(f"인덱스 생성 실패: {e}")
             raise
 
+    def _prepare_dataframe_for_copy(
+        self, df: pd.DataFrame, table_name: str = "stores"
+    ) -> pd.DataFrame:
+        """COPY 명령어를 위한 DataFrame 전처리 (Null 처리 및 타입 변환)
+
+        Args:
+            df: 전처리할 DataFrame
+            table_name: 대상 테이블명 (스키마 조회용)
+
+        Returns:
+            전처리된 DataFrame
+        """
+        import numpy as np
+        from sqlalchemy import inspect
+
+        df_clean = df.copy()
+
+        # 1. 테이블 스키마 조회 (컬럼 타입 확인)
+        inspector = inspect(self.engine)
+        table_columns = {
+            col["name"]: col["type"] for col in inspector.get_columns(table_name)
+        }
+
+        # 2. 컬럼별 타입에 맞춰 전처리
+        for col in df_clean.columns:
+            if col not in table_columns:
+                continue
+
+            col_dtype = df_clean[col].dtype
+            db_type = str(table_columns[col]).upper()
+
+            # INTEGER/BIGINT 컬럼: NaN을 빈 문자열로 처리 (PostgreSQL이 NULL로 인식)
+            if "INTEGER" in db_type or "BIGINT" in db_type:
+                if col_dtype in ["float64", "float32"]:
+                    # float에서 integer로 변환: NaN → '', 숫자 → int
+                    df_clean[col] = df_clean[col].apply(
+                        lambda x: "" if pd.isna(x) else int(x)
+                    )
+                else:
+                    # 이미 integer 타입이면 그대로 유지
+                    pass
+
+            # REAL/DOUBLE/NUMERIC/FLOAT 컬럼: NaN, inf를 빈 문자열로 처리
+            elif any(t in db_type for t in ["REAL", "DOUBLE", "NUMERIC", "FLOAT"]):
+                if col_dtype in ["float64", "float32"]:
+                    df_clean[col] = df_clean[col].apply(
+                        lambda x: ""
+                        if pd.isna(x) or x in [np.inf, -np.inf]
+                        else x
+                    )
+
+            # TEXT/VARCHAR 컬럼: NaN을 빈 문자열로 처리
+            elif "VARCHAR" in db_type or "TEXT" in db_type:
+                if col_dtype == "object":
+                    # NaN을 빈 문자열로 변환 (이미 빈 문자열인 경우 유지)
+                    df_clean[col] = df_clean[col].fillna("")
+                else:
+                    # 숫자 타입이 TEXT 컬럼에 들어가는 경우 문자열로 변환
+                    df_clean[col] = df_clean[col].apply(
+                        lambda x: "" if pd.isna(x) else str(x)
+                    )
+
+        logger.debug(
+            "DataFrame COPY 전처리 완료: NaN→빈문자열, INTEGER 변환, inf 제거"
+        )
+        return df_clean
+
+    def insert_dataframe_fast(
+        self,
+        df: pd.DataFrame,
+        table_name: str = "stores",
+        batch_size: int = 50000,
+    ) -> int:
+        """PostgreSQL COPY를 사용한 고속 데이터 삽입 (to_sql보다 10~100배 빠름)
+
+        Args:
+            df: 삽입할 DataFrame (english 컬럼명 사용, 이미 전처리된 상태)
+            table_name: 대상 테이블명
+            batch_size: 배치 삽입 크기 (메모리 최적화)
+
+        Returns:
+            삽입된 레코드 수
+
+        Raises:
+            SQLAlchemyError: DB 삽입 실패
+        """
+        from io import StringIO
+        import csv
+
+        logger.info(f"COPY 명령어로 고속 삽입 시작: {len(df)} 건")
+
+        # DataFrame 전처리 (Null 처리 및 타입 변환)
+        df_clean = self._prepare_dataframe_for_copy(df, table_name)
+
+        # 배치 처리
+        total_inserted = 0
+        num_batches = (len(df_clean) + batch_size - 1) // batch_size
+
+        for batch_idx in range(num_batches):
+            start_idx = batch_idx * batch_size
+            end_idx = min((batch_idx + 1) * batch_size, len(df_clean))
+            df_batch = df_clean.iloc[start_idx:end_idx]
+
+            # StringIO 버퍼에 CSV 작성
+            buffer = StringIO()
+            df_batch.to_csv(
+                buffer,
+                index=False,
+                header=False,
+                sep='\t',
+                na_rep='',  # 빈 문자열 (이미 전처리에서 NaN을 ''로 변환함)
+                quoting=csv.QUOTE_MINIMAL,
+                escapechar='\\',
+            )
+            buffer.seek(0)
+
+            # psycopg2 raw connection 사용
+            raw_conn = self.engine.raw_connection()
+            cursor = raw_conn.cursor()
+
+            try:
+                # COPY 명령어 실행
+                columns_str = ','.join(df_batch.columns)
+                copy_sql = f"""
+                    COPY {table_name} ({columns_str})
+                    FROM STDIN
+                    WITH (
+                        FORMAT CSV,
+                        DELIMITER E'\\t',
+                        NULL '',
+                        ESCAPE '\\'
+                    )
+                """
+                cursor.copy_expert(copy_sql, buffer)
+                raw_conn.commit()
+
+                total_inserted += len(df_batch)
+                logger.debug(
+                    f"배치 {batch_idx + 1}/{num_batches} 완료: "
+                    f"{len(df_batch)} 건 (누적: {total_inserted})"
+                )
+
+            except Exception as e:
+                raw_conn.rollback()
+                logger.error(f"COPY 삽입 실패 (배치 {batch_idx + 1}): {e}")
+                raise
+            finally:
+                cursor.close()
+                raw_conn.close()
+
+        logger.success(f"COPY 삽입 완료: {total_inserted} 건")
+        return total_inserted
+
     def insert_dataframe(
         self,
         df: pd.DataFrame,
@@ -345,6 +498,7 @@ class DatabaseManager:
         if_exists: str = "append",
         batch_size: int = 10000,
         recreate_table: bool = False,
+        use_copy: bool = True,
     ) -> int:
         """DataFrame 데이터를 DB에 삽입
 
@@ -354,6 +508,7 @@ class DatabaseManager:
             if_exists: 중복 처리 방법 ("append", "replace", "fail")
             batch_size: 배치 삽입 크기 (메모리 최적화)
             recreate_table: True면 테이블 재생성 (제약조건, 인덱스 유지)
+            use_copy: True면 PostgreSQL COPY 사용 (10~100배 빠름), False면 to_sql 사용
 
         Returns:
             삽입된 레코드 수
@@ -417,26 +572,37 @@ class DatabaseManager:
 
         logger.info(f"데이터 삽입 시작: {len(df_copy)} 건 ({actual_if_exists} 모드)")
 
-        try:
-            # DataFrame → PostgreSQL 삽입
-            df_copy.to_sql(
-                name=table_name,
-                con=self.engine,  # engine 사용 (connection 아님)
-                if_exists=actual_if_exists,
-                index=False,
-                chunksize=batch_size,
-                method="multi",  # 배치 삽입 최적화
-            )
+        # COPY 방식 사용 (10~100배 빠름)
+        if use_copy and actual_if_exists == "append":
+            try:
+                return self.insert_dataframe_fast(df_copy, table_name, batch_size)
+            except Exception as e:
+                logger.warning(f"COPY 삽입 실패, to_sql로 재시도: {e}")
+                # COPY 실패 시 to_sql로 fallback
+                use_copy = False
 
-            logger.success(f"데이터 삽입 완료: {len(df_copy)} 건")
-            return len(df_copy)
+        # to_sql 방식 사용 (호환성 우선)
+        if not use_copy:
+            try:
+                # DataFrame → PostgreSQL 삽입
+                df_copy.to_sql(
+                    name=table_name,
+                    con=self.engine,  # engine 사용 (connection 아님)
+                    if_exists=actual_if_exists,
+                    index=False,
+                    chunksize=batch_size,
+                    method="multi",  # 배치 삽입 최적화
+                )
 
-        except IntegrityError as e:
-            logger.error(f"중복 키 오류: {e}")
-            raise
-        except SQLAlchemyError as e:
-            logger.error(f"데이터 삽입 실패: {e}")
-            raise
+                logger.success(f"데이터 삽입 완료: {len(df_copy)} 건")
+                return len(df_copy)
+
+            except IntegrityError as e:
+                logger.error(f"중복 키 오류: {e}")
+                raise
+            except SQLAlchemyError as e:
+                logger.error(f"데이터 삽입 실패: {e}")
+                raise
 
     def query(self, sql: str, params: Optional[Dict] = None) -> pd.DataFrame:
         """SQL 쿼리 실행 및 결과 반환

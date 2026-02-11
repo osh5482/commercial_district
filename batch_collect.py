@@ -211,8 +211,10 @@ async def collect_one_district(
                     )
                     return (False, existing_count, time_stats)
 
-            # 데이터 삽입
-            inserted_count = db.insert_dataframe(df_processed, if_exists="append")
+            # 데이터 삽입 (PostgreSQL COPY 사용 - to_sql보다 10~100배 빠름)
+            inserted_count = db.insert_dataframe(
+                df_processed, if_exists="append", use_copy=True
+            )
 
         db_end = datetime.now()
         time_stats["db_save"] = (db_end - db_start).total_seconds()
