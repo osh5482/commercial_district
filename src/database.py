@@ -260,9 +260,7 @@ class DatabaseManager:
 
             # PRIMARY KEY 설정 (상가업소번호)
             if english_name == "bizes_id":
-                columns.append(
-                    Column(english_name, sqlalchemy_type, primary_key=True)
-                )
+                columns.append(Column(english_name, sqlalchemy_type, primary_key=True))
             # NOT NULL 설정 (필수 컬럼)
             elif english_name in [
                 "bizes_nm",
@@ -280,9 +278,7 @@ class DatabaseManager:
         try:
             # 테이블 생성 (이미 존재하면 스킵)
             metadata_obj.create_all(self.engine, checkfirst=True)
-            logger.success(
-                f"테이블 생성 완료: {table_name} ({len(columns)} 컬럼)"
-            )
+            logger.success(f"테이블 생성 완료: {table_name} ({len(columns)} 컬럼)")
             logger.debug(f"생성된 컬럼: {[col.name for col in columns]}")
 
         except SQLAlchemyError as e:
@@ -347,7 +343,7 @@ class DatabaseManager:
         df: pd.DataFrame,
         table_name: str = "stores",
         if_exists: str = "append",
-        batch_size: int = 1000,
+        batch_size: int = 10000,
         recreate_table: bool = False,
     ) -> int:
         """DataFrame 데이터를 DB에 삽입
@@ -676,9 +672,7 @@ class DatabaseManager:
             sido_count = self.conn.execute(text(sql_sido)).fetchone()[0]
 
             # 시군구 수
-            sql_sigungu = (
-                f"SELECT COUNT(DISTINCT signgu_nm) as count FROM {table_name}"
-            )
+            sql_sigungu = f"SELECT COUNT(DISTINCT signgu_nm) as count FROM {table_name}"
             sigungu_count = self.conn.execute(text(sql_sigungu)).fetchone()[0]
 
             # 업종 대분류 수
